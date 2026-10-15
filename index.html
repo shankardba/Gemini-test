@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter Member & Payment Management Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js CDN for reactivity -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans" x-data="chapterApp()">
+
+    <!-- Header / Navbar -->
+    <header class="bg-indigo-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-700 p-2 rounded-lg">
+                    <i class="fa-solid fa-users-rectangle text-xl text-indigo-200"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-wide">Alpha Chapter Portal</h1>
+                    <p class="text-xs text-indigo-300">National Organization Management System</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-xs bg-indigo-800 px-3 py-1 rounded-full text-indigo-200 border border-indigo-700">
+                    <i class="fa-solid fa-circle text-emerald-400 text-[8px] mr-1"></i> Live Demo Mode
+                </span>
+                <div class="h-8 w-8 bg-indigo-600 rounded-full flex items-center justify-center font-bold text-sm">
+                    SD
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-8 space-y-6">
+
+        <!-- Top Metric Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Members</p>
+                    <h3 class="text-2xl font-bold text-slate-900 mt-1" x-text="members.length"></h3>
+                </div>
+                <div class="bg-blue-50 text-blue-600 p-3 rounded-lg">
+                    <i class="fa-solid fa-user-group text-lg"></i>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Status</p>
+                    <h3 class="text-2xl font-bold text-emerald-600 mt-1" x-text="members.filter(m => m.status === 'Active').length"></h3>
+                </div>
+                <div class="bg-emerald-50 text-emerald-600 p-3 rounded-lg">
+                    <i class="fa-solid fa-user-check text-lg"></i>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">YTD Dues Collected</p>
+                    <h3 class="text-2xl font-bold text-slate-900 mt-1" x-text="formatCurrency(totalCollected)"></h3>
+                </div>
+                <div class="bg-indigo-50 text-indigo-600 p-3 rounded-lg">
+                    <i class="fa-solid fa-dollar-sign text-lg"></i>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pending Dues</p>
+                    <h3 class="text-2xl font-bold text-amber-600 mt-1" x-text="members.filter(m => m.paymentStatus === 'Pending').length"></h3>
+                </div>
+                <div class="bg-amber-50 text-amber-600 p-3 rounded-lg">
+                    <i class="fa-solid fa-clock-rotate-left text-lg"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls / Search Bar -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="relative w-full sm:w-96">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <i class="fa-solid fa-search"></i>
+                </span>
+                <input type="text" x-model="searchQuery" placeholder="Search by name, email, or national ID..." 
+                    class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                <select x-model="statusFilter" class="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="All">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Pending">Pending Dues</option>
+                    <option value="Suspended">Suspended</option>
+                </select>
+                <button @click="openAddModal = true" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-2">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Add Member</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Members Table Card -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800">Chapter Roster & Financial Ledger</h3>
+                <span class="text-xs text-slate-400" x-text="filteredMembers.length + ' members found'"></span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-200">
+                            <th class="py-3 px-6 font-semibold">Member</th>
+                            <th class="py-3 px-6 font-semibold">National ID</th>
+                            <th class="py-3 px-6 font-semibold">Join Date</th>
+                            <th class="py-3 px-6 font-semibold">Membership Status</th>
+                            <th class="py-3 px-6 font-semibold">Dues / Payment Status</th>
+                            <th class="py-3 px-6 font-semibold text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-sm">
+                        <template x-for="member in filteredMembers" :key="member.id">
+                            <tr class="hover:bg-slate-50/60 transition">
+                                <td class="py-4 px-6">
+                                    <div class="font-medium text-slate-900" x-text="member.name"></div>
+                                    <div class="text-xs text-slate-400" x-text="member.email"></div>
+                                </td>
+                                <td class="py-4 px-6 font-mono text-xs text-slate-600" x-text="member.nationalId"></td>
+                                <td class="py-4 px-6 text-slate-600" x-text="member.joinDate"></td>
+                                <td class="py-4 px-6">
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold"
+                                        :class="{
+                                            'bg-emerald-50 text-emerald-700': member.status === 'Active',
+                                            'bg-amber-50 text-amber-700': member.status === 'Pending',
+                                            'bg-rose-50 text-rose-700': member.status === 'Suspended'
+                                        }" x-text="member.status">
+                                    </span>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="w-2 h-2 rounded-full"
+                                            :class="{
+                                                'bg-emerald-500': member.paymentStatus === 'Paid',
+                                                'bg-amber-500': member.paymentStatus === 'Pending'
+                                            }">
+                                        </span>
+                                        <span class="text-slate-700 font-medium" x-text="member.paymentStatus"></span>
+                                        <span class="text-xs text-slate-400" x-text="'(' + formatCurrency(member.lastPaymentAmount) + ')'"></span>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-6 text-right space-x-2">
+                                    <button @click="viewMemberDetails(member)" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs bg-indigo-50 px-3 py-1.5 rounded transition">
+                                        View Details
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: Add New Member -->
+    <div x-show="openAddModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" style="display: none;">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4" @click.away="openAddModal = false">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                <h3 class="font-bold text-lg text-slate-900">Add New Chapter Member</h3>
+                <button @click="openAddModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form @submit.prevent="addMember" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Full Name</label>
+                    <input type="text" x-model="newMember.name" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Email Address</label>
+                    <input type="email" x-model="newMember.email" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">National Org ID</label>
+                    <input type="text" x-model="newMember.nationalId" required placeholder="NAT-XXXXX" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Initial Dues ($)</label>
+                        <input type="number" x-model="newMember.lastPaymentAmount" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Payment Status</label>
+                        <select x-model="newMember.paymentStatus" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="Paid">Paid</option>
+                            <option value="Pending">Pending</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="pt-4 flex justify-end space-x-3">
+                    <button type="button" @click="openAddModal = false" class="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition">Save Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Member Details & Payment Ledger -->
+    <div x-show="openDetailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" style="display: none;">
+        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4" @click.away="openDetailModal = false">
+            <template x-if="selectedMember">
+                <div>
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                        <div>
+                            <h3 class="font-bold text-lg text-slate-900" x-text="selectedMember.name"></h3>
+                            <p class="text-xs text-slate-400 font-mono" x-text="selectedMember.nationalId"></p>
+                        </div>
+                        <button @click="openDetailModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="py-4 space-y-3">
+                        <div class="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg text-sm">
+                            <div>
+                                <span class="text-xs text-slate-400 block">Email</span>
+                                <span class="font-medium text-slate-700" x-text="selectedMember.email"></span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-slate-400 block">Join Date</span>
+                                <span class="font-medium text-slate-700" x-text="selectedMember.joinDate"></span>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Payment History Ledger</h4>
+                            <div class="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                                <table class="w-full text-left">
+                                    <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
+                                        <tr>
+                                            <th class="p-2.5">Fiscal Year</th>
+                                            <th class="p-2.5">Amount</th>
+                                            <th class="p-2.5">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <tr>
+                                            <td class="p-2.5 text-slate-700">2026 Fiscal Year</td>
+                                            <td class="p-2.5 font-medium text-slate-900" x-text="formatCurrency(selectedMember.lastPaymentAmount)"></td>
+                                            <td class="p-2.5">
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold"
+                                                    :class="selectedMember.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+                                                    x-text="selectedMember.paymentStatus">
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pt-2 flex justify-end">
+                        <button @click="openDetailModal = false" class="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm">Close</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Frontend Logic Script -->
+    <script>
+        function chapterApp() {
+            return {
+                searchQuery: '',
+                statusFilter: 'All',
+                openAddModal: false,
+                openDetailModal: false,
+                selectedMember: null,
+                newMember: {
+                    name: '',
+                    email: '',
+                    nationalId: '',
+                    lastPaymentAmount: 150,
+                    paymentStatus: 'Paid'
+                },
+                members: [
+                    { id: 1, name: 'Marcus Vance', email: 'marcus.v@example.com', nationalId: 'NAT-10492', joinDate: '2023-04-12', status: 'Active', paymentStatus: 'Paid', lastPaymentAmount: 150.00 },
+                    { id: 2, name: 'Elena Rostova', email: 'elena.r@example.com', nationalId: 'NAT-10831', joinDate: '2022-01-15', status: 'Active', paymentStatus: 'Paid', lastPaymentAmount: 150.00 },
+                    { id: 3, name: 'Darnell Washington', email: 'darnell.w@example.com', nationalId: 'NAT-11024', joinDate: '2024-03-01', status: 'Pending', paymentStatus: 'Pending', lastPaymentAmount: 75.00 },
+                    { id: 4, name: 'Sarah Jenkins', email: 's.jenkins@example.com', nationalId: 'NAT-09821', joinDate: '2021-11-20', status: 'Active', paymentStatus: 'Paid', lastPaymentAmount: 200.00 },
+                    { id: 5, name: 'Liam O’Connor', email: 'liam.oc@example.com', nationalId: 'NAT-11209', joinDate: '2025-02-10', status: 'Suspended', paymentStatus: 'Pending', lastPaymentAmount: 0.00 },
+                ],
+                get totalCollected() {
+                    return this.members
+                        .filter(m => m.paymentStatus === 'Paid')
+                        .reduce((sum, m) => sum + m.lastPaymentAmount, 0);
+                },
+                get filteredMembers() {
+                    return this.members.filter(m => {
+                        const matchesSearch = m.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                                              m.email.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                                              m.nationalId.toLowerCase().includes(this.searchQuery.toLowerCase());
+                        const matchesStatus = this.statusFilter === 'All' || 
+                                              (this.statusFilter === 'Active' && m.status === 'Active') ||
+                                              (this.statusFilter === 'Pending' && m.paymentStatus === 'Pending') ||
+                                              (this.statusFilter === 'Suspended' && m.status === 'Suspended');
+                        return matchesSearch && matchesStatus;
+                    });
+                },
+                formatCurrency(value) {
+                    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+                },
+                addMember() {
+                    const id = this.members.length + 1;
+                    this.members.unshift({
+                        id: id,
+                        name: this.newMember.name,
+                        email: this.newMember.email,
+                        nationalId: this.newMember.nationalId,
+                        joinDate: new Date().toISOString().split('T')[0],
+                        status: 'Active',
+                        paymentStatus: this.newMember.paymentStatus,
+                        lastPaymentAmount: parseFloat(this.newMember.lastPaymentAmount)
+                    });
+                    this.newMember = { name: '', email: '', nationalId: '', lastPaymentAmount: 150, paymentStatus: 'Paid' };
+                    this.openAddModal = false;
+                },
+                viewMemberDetails(member) {
+                    this.selectedMember = member;
+                    this.openDetailModal = true;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
